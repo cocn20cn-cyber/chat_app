@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Alyas Software",
+  "short_name": "Alyas",
+  "description": "A private conversation for two people.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#1f2a3d",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

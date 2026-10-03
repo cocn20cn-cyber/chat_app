@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Message } from '../types'
 
-type NotificationPermissionState = NotificationPermission | 'unsupported'
+type NotificationPermissionState = NotificationPermission | 'unsupported' | 'ios-install-required'
 
 function currentPermission(): NotificationPermissionState {
-  return typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'unsupported'
+  if (typeof window === 'undefined') return 'unsupported'
+  if (requiresIosHomeScreenInstall()) return 'ios-install-required'
+  return 'Notification' in window ? window.Notification.permission : 'unsupported'
+}
+
+function requiresIosHomeScreenInstall() {
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+  return isIos && !standalone
 }
 
 function notificationBody(message: Message) {
@@ -44,6 +52,10 @@ export function useBrowserNotifications(messages: Message[], myId: string, frien
   }, [conversationReady, friendName, messages, myId, permission])
 
   const requestPermission = useCallback(async () => {
+    if (requiresIosHomeScreenInstall()) {
+      setPermission('ios-install-required')
+      return 'ios-install-required' as const
+    }
     if (!('Notification' in window)) {
       setPermission('unsupported')
       return 'unsupported' as const
@@ -68,5 +80,5 @@ export function useBrowserNotifications(messages: Message[], myId: string, frien
     window.setTimeout(() => notification.close(), 60_000)
   }, [friendName, permission])
 
-  return { permission, requestPermission, notifyIncomingCall }
+  return { permission, requestPermission, notifyIncomingCall, iosInstallRequired: permission === 'ios-install-required' }
 }
