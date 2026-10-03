@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { Attachment, CallRecord, Message, MessageType, Profile } from '../types'
+import type { Attachment, CallRecord, Message, MessageReceipt, MessageType, Profile } from '../types'
 
 const BUCKET = 'chat-files'
 
@@ -146,14 +146,30 @@ async function uploadFile(path: string, file: File, onProgress: (percent: number
   })
 }
 
-export async function markMessagesSeen(myId: string, friendId: string) {
-  const { error } = await supabase
+export async function markMessagesDelivered(myId: string, friendId: string) {
+  const deliveredAt = new Date().toISOString()
+  const { data, error } = await supabase
     .from('messages')
-    .update({ seen_at: new Date().toISOString() })
+    .update({ delivered_at: deliveredAt })
+    .eq('sender_id', friendId)
+    .eq('receiver_id', myId)
+    .is('delivered_at', null)
+    .select('id, delivered_at, seen_at')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as MessageReceipt[]
+}
+
+export async function markMessagesSeen(myId: string, friendId: string) {
+  const seenAt = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('messages')
+    .update({ delivered_at: seenAt, seen_at: seenAt })
     .eq('sender_id', friendId)
     .eq('receiver_id', myId)
     .is('seen_at', null)
+    .select('id, delivered_at, seen_at')
   if (error) throw new Error(error.message)
+  return (data ?? []) as MessageReceipt[]
 }
 
 export async function updateLastSeen() {

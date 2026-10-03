@@ -46,7 +46,7 @@ export function MessageList({ messages, calls, myId, friendName, loading, friend
                   <Attachment message={message} openImage={setLightboxUrl} />
                   <div className="message-meta">
                     <time dateTime={message.created_at}>{formatTime(message.created_at)}</time>
-                    {mine && <span className="seen-state">{message.seen_at ? 'Seen' : 'Sent'}</span>}
+                    {mine && <DeliveryState message={message} />}
                   </div>
                 </div>
               </article>
@@ -62,6 +62,12 @@ export function MessageList({ messages, calls, myId, friendName, loading, friend
       )}
     </>
   )
+}
+
+function DeliveryState({ message }: { message: Message }) {
+  if (message.seen_at) return <span className="delivery-state delivery-state--seen" title="Seen" aria-label="Seen"><Icon name="checkDouble" size={14} /></span>
+  if (message.delivered_at) return <span className="delivery-state" title="Delivered" aria-label="Delivered"><Icon name="checkDouble" size={14} /></span>
+  return <span className="delivery-state" title="Sent — not delivered yet" aria-label="Sent — not delivered yet"><Icon name="check" size={14} /></span>
 }
 
 type TimelineEntry =

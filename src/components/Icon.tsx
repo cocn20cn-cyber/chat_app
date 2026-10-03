@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type IconName = 'attach' | 'bell' | 'bellOff' | 'check' | 'close' | 'file' | 'lock' | 'mic' | 'micOff' | 'phone' | 'send' | 'settings' | 'stop' | 'video'
+export type IconName = 'attach' | 'bell' | 'bellOff' | 'check' | 'checkDouble' | 'close' | 'file' | 'lock' | 'mic' | 'micOff' | 'phone' | 'send' | 'settings' | 'stop' | 'video'
 
 interface Props {
   name: IconName
@@ -14,6 +14,7 @@ export function Icon({ name, size = 20, stroke = 1.9 }: Props) {
     bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
     bellOff: <><path d="m3 3 18 18" /><path d="M18 8a6 6 0 0 0-8.5-5.5M6.3 6.3C6 8.4 6 11 6 11c0 4.7-2.1 5.6-2.8 6h12.5M13.7 21a2 2 0 0 1-3.4 0" /></>,
     check: <path d="m5 12 4.2 4.2L19 6.5" />,
+    checkDouble: <><path d="m2.5 12 3.8 3.8L14 8.2" /><path d="m8.5 12 3.8 3.8L21.5 6.2" /></>,
     close: <path d="m6 6 12 12M18 6 6 18" />,
     file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></>,
     lock: <><rect width="14" height="11" x="5" y="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></>,

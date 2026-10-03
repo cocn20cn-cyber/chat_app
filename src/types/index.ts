@@ -17,9 +17,16 @@ export interface Message {
   file_path: string | null
   file_name: string | null
   file_size: number | null
+  delivered_at: string | null
   seen_at: string | null
   created_at: string
   signed_url?: string | null
+}
+
+export interface MessageReceipt {
+  id: string
+  delivered_at: string | null
+  seen_at: string | null
 }
 
 export interface CallRecord {

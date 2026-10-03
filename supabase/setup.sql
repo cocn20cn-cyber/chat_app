@@ -22,6 +22,7 @@ create table if not exists public.messages (
   file_path text,
   file_name text,
   file_size bigint check (file_size is null or file_size >= 0),
+  delivered_at timestamptz,
   seen_at timestamptz,
   created_at timestamptz not null default now(),
   check (sender_id <> receiver_id),
@@ -95,10 +96,15 @@ with check (
 );
 
 drop policy if exists "receivers mark messages seen" on public.messages;
-create policy "receivers mark messages seen"
+drop policy if exists "receivers update message delivery" on public.messages;
+create policy "receivers update message delivery"
 on public.messages for update to authenticated
 using (receiver_id = auth.uid() and public.is_private_member(auth.uid()))
-with check (receiver_id = auth.uid() and public.is_private_member(auth.uid()) and seen_at is not null);
+with check (
+  receiver_id = auth.uid()
+  and public.is_private_member(auth.uid())
+  and (delivered_at is not null or seen_at is not null)
+);
 
 drop policy if exists "members read calls" on public.calls;
 create policy "members read calls"
@@ -124,7 +130,7 @@ with check (public.is_private_member(auth.uid()) and (auth.uid() = caller_id or 
 -- Column grants prevent the app from changing message contents or call participants.
 revoke all on public.profiles, public.messages, public.calls from anon;
 grant select, update (display_name, avatar_url, last_seen) on public.profiles to authenticated;
-grant select, insert, update (seen_at) on public.messages to authenticated;
+grant select, insert, update (delivered_at, seen_at) on public.messages to authenticated;
 grant select, insert, update (status, ended_at, duration, offer_sdp, answer_sdp) on public.calls to authenticated;
 
 -- Private Storage. Files are never public and the first path segment must be the uploader's user id.

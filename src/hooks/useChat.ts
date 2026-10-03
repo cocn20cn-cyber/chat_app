@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { addAvatarSignedUrl, addSignedUrl, markMessagesSeen, sendFileMessage, sendTextMessage } from '../services/chat'
-import type { Attachment, Message, Profile } from '../types'
+import { addAvatarSignedUrl, addSignedUrl, markMessagesDelivered, markMessagesSeen, sendFileMessage, sendTextMessage } from '../services/chat'
+import type { Attachment, Message, MessageReceipt, Profile } from '../types'
 
 type ConnectionState = 'connected' | 'reconnecting'
 
@@ -42,6 +42,18 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
     void channel.send({ type: 'broadcast', event: 'message-created', payload: { message } }).catch(() => undefined)
   }, [])
 
+  const applyReceipt = useCallback((receipt: MessageReceipt) => {
+    setMessages((current) => current.map((message) => message.id === receipt.id
+      ? { ...message, delivered_at: receipt.delivered_at ?? message.delivered_at, seen_at: receipt.seen_at ?? message.seen_at }
+      : message))
+  }, [])
+
+  const broadcastReceipts = useCallback((receipts: MessageReceipt[]) => {
+    const channel = channelRef.current
+    if (!channel || receipts.length === 0) return
+    void channel.send({ type: 'broadcast', event: 'message-status', payload: { receipts, to: friendId } }).catch(() => undefined)
+  }, [friendId])
+
   const refreshMessages = useCallback(async () => {
     const filter = `and(sender_id.eq.${myId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${myId})`
     const { data, error: queryError } = await supabase
@@ -74,7 +86,8 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (event) => {
         const updated = event.new as Message
-        setMessages((current) => current.map((message) => message.id === updated.id ? { ...message, seen_at: updated.seen_at } : message))
+        if (!belongsToConversation(updated)) return
+        applyReceipt({ id: updated.id, delivered_at: updated.delivered_at, seen_at: updated.seen_at })
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (event) => {
         const profile = event.new as Profile
@@ -85,6 +98,11 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
         const message = (payload as { message?: Message }).message
         if (!message || !belongsToConversation(message)) return
         void addSignedUrl(message).then(addMessage)
+      })
+      .on('broadcast', { event: 'message-status' }, ({ payload }) => {
+        const data = payload as { to?: string; receipts?: MessageReceipt[] }
+        if (data.to !== myId || !data.receipts) return
+        data.receipts.forEach(applyReceipt)
       })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         const data = payload as { userId?: string; isTyping?: boolean }
@@ -126,23 +144,30 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       void supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [addMessage, belongsToConversation, friendId, myId, refreshMessages])
+  }, [addMessage, applyReceipt, belongsToConversation, friendId, myId, refreshMessages])
+
+  useEffect(() => {
+    if (!messages.some((message) => message.sender_id === friendId && !message.delivered_at)) return
+    void markMessagesDelivered(myId, friendId)
+      .then(broadcastReceipts)
+      .catch(() => undefined)
+  }, [broadcastReceipts, friendId, messages, myId])
 
   useEffect(() => {
     if (!messages.some((message) => message.sender_id === friendId && !message.seen_at) || document.visibilityState !== 'visible') return
-    void markMessagesSeen(myId, friendId).catch(() => undefined)
-  }, [friendId, messages, myId])
+    void markMessagesSeen(myId, friendId).then(broadcastReceipts).catch(() => undefined)
+  }, [broadcastReceipts, friendId, messages, myId])
 
   useEffect(() => {
     const markVisibleMessages = () => {
       if (document.visibilityState === 'visible') {
-        void markMessagesSeen(myId, friendId).catch(() => undefined)
+        void markMessagesSeen(myId, friendId).then(broadcastReceipts).catch(() => undefined)
         void refreshMessages().catch(() => undefined)
       }
     }
     document.addEventListener('visibilitychange', markVisibleMessages)
     return () => document.removeEventListener('visibilitychange', markVisibleMessages)
-  }, [friendId, myId, refreshMessages])
+  }, [broadcastReceipts, friendId, myId, refreshMessages])
 
   useEffect(() => {
     const reconcile = window.setInterval(() => {
