@@ -31,6 +31,17 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
     })
   }, [])
 
+  const belongsToConversation = useCallback((message: Message) => (
+    (message.sender_id === myId && message.receiver_id === friendId)
+    || (message.sender_id === friendId && message.receiver_id === myId)
+  ), [friendId, myId])
+
+  const broadcastMessage = useCallback((message: Message) => {
+    const channel = channelRef.current
+    if (!channel) return
+    void channel.send({ type: 'broadcast', event: 'message-created', payload: { message } }).catch(() => undefined)
+  }, [])
+
   const refreshMessages = useCallback(async () => {
     const filter = `and(sender_id.eq.${myId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${myId})`
     const { data, error: queryError } = await supabase
@@ -58,7 +69,7 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (event) => {
         const next = event.new as Message
-        if (!((next.sender_id === myId && next.receiver_id === friendId) || (next.sender_id === friendId && next.receiver_id === myId))) return
+        if (!belongsToConversation(next)) return
         void addSignedUrl(next).then(addMessage)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (event) => {
@@ -69,6 +80,11 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
         const profile = event.new as Profile
         if (profile.id !== myId && profile.id !== friendId) return
         void addAvatarSignedUrl(profile).then((hydrated) => profileCallbackRef.current?.(hydrated))
+      })
+      .on('broadcast', { event: 'message-created' }, ({ payload }) => {
+        const message = (payload as { message?: Message }).message
+        if (!message || !belongsToConversation(message)) return
+        void addSignedUrl(message).then(addMessage)
       })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         const data = payload as { userId?: string; isTyping?: boolean }
@@ -110,7 +126,7 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       void supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [addMessage, friendId, myId, refreshMessages])
+  }, [addMessage, belongsToConversation, friendId, myId, refreshMessages])
 
   useEffect(() => {
     if (!messages.some((message) => message.sender_id === friendId && !message.seen_at) || document.visibilityState !== 'visible') return
@@ -119,11 +135,21 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
 
   useEffect(() => {
     const markVisibleMessages = () => {
-      if (document.visibilityState === 'visible') void markMessagesSeen(myId, friendId).catch(() => undefined)
+      if (document.visibilityState === 'visible') {
+        void markMessagesSeen(myId, friendId).catch(() => undefined)
+        void refreshMessages().catch(() => undefined)
+      }
     }
     document.addEventListener('visibilitychange', markVisibleMessages)
     return () => document.removeEventListener('visibilitychange', markVisibleMessages)
-  }, [friendId, myId])
+  }, [friendId, myId, refreshMessages])
+
+  useEffect(() => {
+    const reconcile = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshMessages().catch(() => undefined)
+    }, 15_000)
+    return () => window.clearInterval(reconcile)
+  }, [refreshMessages])
 
   const sendTyping = useCallback(() => {
     const channel = channelRef.current
@@ -150,6 +176,7 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
         message = await sendTextMessage(myId, friendId, cleanContent)
       }
       addMessage(message)
+      broadcastMessage(message)
       return true
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') {
@@ -163,7 +190,7 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       setUploadProgress(null)
       setSending(false)
     }
-  }, [addMessage, friendId, myId])
+  }, [addMessage, broadcastMessage, friendId, myId])
 
   const cancelUpload = useCallback(() => uploadController.current?.abort(), [])
 
