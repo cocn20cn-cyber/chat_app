@@ -6,6 +6,23 @@ import { Icon } from "./Icon";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
+function isAppleMobileDevice() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function preferredAudioMimeType() {
+  // Safari records and plays AAC/MPEG-4 audio most reliably. Choosing WebM
+  // first can create a recording that another browser plays but the sending
+  // iPhone leaves in a perpetual loading state.
+  const formats = isAppleMobileDevice()
+    ? ["audio/mp4", "audio/aac", "audio/webm;codecs=opus", "audio/webm"]
+    : ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+  return formats.find((type) => MediaRecorder.isTypeSupported(type));
+}
+
 interface Props {
   sending: boolean;
   uploadProgress: number | null;
@@ -107,12 +124,7 @@ export function MessageComposer({
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/ogg;codecs=opus",
-        "audio/mp4",
-      ].find((type) => MediaRecorder.isTypeSupported(type));
+      const mimeType = preferredAudioMimeType();
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
@@ -128,7 +140,8 @@ export function MessageComposer({
         setError("Voice recording stopped unexpectedly. Please try again.");
       };
       recorder.onstop = () => {
-        const actualType = recorder.mimeType || mimeType || "audio/webm";
+        const actualType =
+          recorder.mimeType || mimeType || (isAppleMobileDevice() ? "audio/mp4" : "audio/webm");
         const recording = new Blob(chunks, { type: actualType });
         clearRecording();
         setRecording(false);

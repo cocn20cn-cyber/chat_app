@@ -101,6 +101,9 @@ function Conversation({
   );
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [notificationHelp, setNotificationHelp] = useState<
+    "install" | "blocked" | "unsupported" | null
+  >(null);
 
   const loadCalls = useCallback(async () => {
     try {
@@ -191,12 +194,23 @@ function Conversation({
             </span>
             <button
               className={`header-icon-button ${notifications.permission === "granted" ? "header-icon-button--active" : ""}`}
-              onClick={() => void notifications.requestPermission()}
+              onClick={() => {
+                if (notifications.iosInstallRequired) {
+                  setNotificationHelp("install");
+                  return;
+                }
+                void notifications.requestPermission().then((result) => {
+                  if (result === "denied") setNotificationHelp("blocked");
+                  if (result === "unsupported") setNotificationHelp("unsupported");
+                });
+              }}
               disabled={notifications.permission === "unsupported"}
               aria-label="Enable call and message notifications"
               title={
                 notifications.permission === "granted"
                   ? "Call and message notifications are on"
+                  : notifications.iosInstallRequired
+                    ? "Install Alyas Software to your iPhone Home Screen for notifications"
                   : notifications.permission === "denied"
                     ? "Notifications are blocked in browser settings"
                     : "Enable call and message notifications"
@@ -278,7 +292,84 @@ function Conversation({
           onClose={() => setAccountOpen(false)}
         />
       )}
+      {notificationHelp && (
+        <NotificationHelpDialog
+          type={notificationHelp}
+          onClose={() => setNotificationHelp(null)}
+        />
+      )}
     </main>
+  );
+}
+
+function NotificationHelpDialog({
+  type,
+  onClose,
+}: {
+  type: "install" | "blocked" | "unsupported";
+  onClose: () => void;
+}) {
+  const install = type === "install";
+  const blocked = type === "blocked";
+  const title = install
+    ? "Add Alyas Software to Home Screen"
+    : blocked
+      ? "Notifications are blocked"
+      : "Notifications are not available";
+
+  return (
+    <section
+      className="account-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="notification-help-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="notification-help-dialog">
+        <button className="dialog-close" onClick={onClose} aria-label="Close">
+          <Icon name="close" size={18} />
+        </button>
+        <div className="dialog-heading">
+          <div className="dialog-icon">
+            <Icon name="bell" size={19} />
+          </div>
+          <div>
+            <p className="eyebrow">NOTIFICATIONS</p>
+            <h2 id="notification-help-title">{title}</h2>
+          </div>
+        </div>
+        {install ? (
+          <>
+            <p>
+              iPhone Safari only allows web notifications after this site is
+              installed as a Home Screen app.
+            </p>
+            <ol>
+              <li>In Safari, tap <strong>Share</strong>.</li>
+              <li>Choose <strong>Add to Home Screen</strong>.</li>
+              <li>Open <strong>Alyas Software</strong> from the new icon.</li>
+              <li>Tap the bell again, then choose <strong>Allow</strong>.</li>
+            </ol>
+          </>
+        ) : blocked ? (
+          <p>
+            Notifications were blocked for Alyas Software. Allow them in your
+            device or browser notification settings, then reopen the app and
+            tap the bell again.
+          </p>
+        ) : (
+          <p>
+            This browser cannot request notifications. Open Alyas Software in
+            the latest Safari or Chrome version and try again.
+          </p>
+        )}
+        <button className="primary-button" onClick={onClose}>
+          Got it
+        </button>
+      </div>
+    </section>
   );
 }
 

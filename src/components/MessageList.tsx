@@ -225,13 +225,7 @@ function Attachment({
   }
   if (message.message_type === "audio") {
     return (
-      <div className="audio-message">
-        <Icon name="mic" size={17} />
-        <audio controls preload="metadata">
-          <source src={message.signed_url} />
-          Your browser cannot play this voice message.
-        </audio>
-      </div>
+      <AudioMessage url={message.signed_url} />
     );
   }
   return (
@@ -250,5 +244,32 @@ function Attachment({
         <small>{formatBytes(message.file_size)} · Open</small>
       </span>
     </a>
+  );
+}
+
+function AudioMessage({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => setFailed(false), [url]);
+
+  return (
+    <div className="audio-message">
+      <Icon name="mic" size={17} />
+      <span className="audio-message-player">
+        <audio
+          controls
+          preload="auto"
+          src={url}
+          onError={() => setFailed(true)}
+        >
+          Your browser cannot play this voice message.
+        </audio>
+        {failed && (
+          <a href={url} target="_blank" rel="noreferrer">
+            Open audio
+          </a>
+        )}
+      </span>
+    </div>
   );
 }
