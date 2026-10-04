@@ -13,12 +13,17 @@ export function LoginPage() {
     if (!isSupabaseConfigured) return;
     setLoading(true);
     setError(null);
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
       password,
     });
-    if (loginError)
-      setError("That email or password is not correct. Please try again.");
+
+    console.log("LOGIN DATA:", data);
+    console.log("LOGIN ERROR:", loginError);
+
+    if (loginError) {
+      setError(loginError.message);
+    }
     setLoading(false);
   };
 
