@@ -79,9 +79,6 @@ export function MessageList({
                 <div
                   className={`message-bubble message-bubble--${message.message_type}`}
                 >
-                  {!mine && (
-                    <span className="message-sender">{friendName}</span>
-                  )}
                   {message.content && (
                     <p className="message-content">{message.content}</p>
                   )}

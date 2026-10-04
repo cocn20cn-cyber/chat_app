@@ -458,11 +458,14 @@ h1 {
 }
 .message-bubble--image,
 .message-bubble--video {
-  padding: 5px 5px 4px;
+  padding: 0;
+  overflow: visible;
+  background: transparent !important;
+  box-shadow: none;
 }
 .message-bubble--image .message-content,
 .message-bubble--video .message-content {
-  padding: 3px 5px 0;
+  padding: 5px 3px 0;
 }
 .message-bubble--audio {
   min-width: min(235px, 100%);
@@ -494,6 +497,13 @@ h1 {
 .message-row--mine .message-meta {
   color: #c0cbda;
 }
+.message-bubble--image .message-meta,
+.message-bubble--video .message-meta,
+.message-row--mine .message-bubble--image .message-meta,
+.message-row--mine .message-bubble--video .message-meta {
+  padding: 3px 3px 0;
+  color: #8a96a7;
+}
 .delivery-state {
   display: inline-grid;
   place-items: center;
@@ -512,18 +522,19 @@ h1 {
 }
 .image-message img {
   width: auto;
-  max-width: 100%;
-  max-height: 340px;
+  max-width: min(100%, 560px);
+  max-height: min(420px, 58vh);
   display: block;
-  object-fit: cover;
-  border-radius: 10px;
+  object-fit: contain;
+  border-radius: 12px;
 }
 .video-message {
   display: block;
-  max-width: 100%;
-  max-height: 340px;
-  border-radius: 10px;
-  background: #111;
+  width: auto;
+  max-width: min(100%, 560px);
+  max-height: min(420px, 58vh);
+  border-radius: 12px;
+  background: transparent;
 }
 .file-message {
   min-width: 215px;

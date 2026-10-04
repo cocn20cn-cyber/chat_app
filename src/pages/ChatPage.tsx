@@ -102,7 +102,7 @@ function Conversation({
   const [calls, setCalls] = useState<CallRecord[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationHelp, setNotificationHelp] = useState<
-    "install" | "blocked" | "unsupported" | null
+    "install" | "blocked" | "unsupported" | "server" | null
   >(null);
 
   const loadCalls = useCallback(async () => {
@@ -200,8 +200,16 @@ function Conversation({
                   return;
                 }
                 void notifications.requestPermission().then((result) => {
-                  if (result === "denied") setNotificationHelp("blocked");
-                  if (result === "unsupported") setNotificationHelp("unsupported");
+                  if (result.permission === "denied") setNotificationHelp("blocked");
+                  if (result.permission === "unsupported") setNotificationHelp("unsupported");
+                  if (
+                    result.permission === "granted" &&
+                    (result.pushSetup === "not-configured" ||
+                      result.pushSetup === "failed" ||
+                      result.pushSetup === "unsupported")
+                  ) {
+                    setNotificationHelp("server");
+                  }
                 });
               }}
               disabled={notifications.permission === "unsupported"}
@@ -306,15 +314,18 @@ function NotificationHelpDialog({
   type,
   onClose,
 }: {
-  type: "install" | "blocked" | "unsupported";
+  type: "install" | "blocked" | "unsupported" | "server";
   onClose: () => void;
 }) {
   const install = type === "install";
   const blocked = type === "blocked";
+  const server = type === "server";
   const title = install
     ? "Add Alyas Software to Home Screen"
     : blocked
       ? "Notifications are blocked"
+      : server
+        ? "Push notifications need setup"
       : "Notifications are not available";
 
   return (
@@ -358,6 +369,13 @@ function NotificationHelpDialog({
             Notifications were blocked for Alyas Software. Allow them in your
             device or browser notification settings, then reopen the app and
             tap the bell again.
+          </p>
+        ) : server ? (
+          <p>
+            Your browser permission is on, but this Vercel deployment still
+            needs its secure push server configuration. Follow the
+            <strong> PUSH_NOTIFICATIONS_SETUP.md </strong>
+            file in the project, redeploy, then tap the bell once more.
           </p>
         ) : (
           <p>

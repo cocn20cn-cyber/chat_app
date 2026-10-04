@@ -12,6 +12,8 @@ self.addEventListener('push', (event) => {
     body: data.body || 'You have a new private message.',
     icon: '/app-icon.svg',
     badge: '/app-icon.svg',
+    tag: data.tag || 'alyas-software-message',
+    renotify: Boolean(data.tag),
     data: { url: data.url || '/' },
   }
   event.waitUntil(self.registration.showNotification(title, options))

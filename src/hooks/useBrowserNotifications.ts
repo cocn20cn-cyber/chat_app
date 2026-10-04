@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Message } from '../types'
+import { registerPushSubscription, type PushSetupStatus } from '../lib/push'
 
 type NotificationPermissionState = NotificationPermission | 'unsupported' | 'ios-install-required'
 
@@ -46,6 +47,7 @@ async function showNotification(title: string, options: NotificationOptions) {
 
 export function useBrowserNotifications(messages: Message[], myId: string, friendName: string, conversationReady: boolean) {
   const [permission, setPermission] = useState<NotificationPermissionState>(currentPermission)
+  const [pushSetup, setPushSetup] = useState<PushSetupStatus>('idle')
   const knownMessageIds = useRef(new Set<string>())
   const initialized = useRef(false)
 
@@ -68,24 +70,33 @@ export function useBrowserNotifications(messages: Message[], myId: string, frien
     }
   }, [conversationReady, friendName, messages, myId, permission])
 
+  useEffect(() => {
+    if (permission !== 'granted') return
+    void registerPushSubscription().then(setPushSetup)
+  }, [permission])
+
   const requestPermission = useCallback(async () => {
     if (requiresIosHomeScreenInstall()) {
       setPermission('ios-install-required')
-      return 'ios-install-required' as const
+      return { permission: 'ios-install-required' as const, pushSetup: 'idle' as const }
     }
     if (!('Notification' in window)) {
       setPermission('unsupported')
-      return 'unsupported' as const
+      return { permission: 'unsupported' as const, pushSetup: 'unsupported' as const }
     }
     try {
       const result = await window.Notification.requestPermission()
       setPermission(result)
-      return result
+      const nextPushSetup = result === 'granted'
+        ? await registerPushSubscription()
+        : 'idle' as const
+      if (result === 'granted') setPushSetup(nextPushSetup)
+      return { permission: result, pushSetup: nextPushSetup }
     } catch {
       // Keep the real browser status instead of silently pretending success.
       const result = window.Notification.permission
       setPermission(result)
-      return result
+      return { permission: result, pushSetup: 'failed' as const }
     }
   }, [])
 
@@ -99,5 +110,5 @@ export function useBrowserNotifications(messages: Message[], myId: string, frien
     })
   }, [friendName, permission])
 
-  return { permission, requestPermission, notifyIncomingCall, iosInstallRequired: permission === 'ios-install-required' }
+  return { permission, pushSetup, requestPermission, notifyIncomingCall, iosInstallRequired: permission === 'ios-install-required' }
 }

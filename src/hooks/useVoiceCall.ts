@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { notifyPrivateRecipient } from '../lib/push'
 import { createCall, getPendingIncomingCall, saveCallAnswer, saveCallOffer, updateCall } from '../services/chat'
 import type { CallRecord, CallSignal, CallState } from '../types'
 
@@ -263,6 +264,7 @@ export function useVoiceCall(myId: string, friendId: string, onIncomingCall?: ()
       const initialOffer = descriptionFrom(peer)
       await saveCallOffer(callId, initialOffer)
       sendSignal({ kind: 'offer', callId, from: myId, to: friendId, sdp: initialOffer, startedAt: record.started_at })
+      void notifyPrivateRecipient(friendId, 'call')
       void waitForIceGathering(peer)
         .then(() => saveCallOffer(callId, descriptionFrom(peer)))
         .catch(() => undefined)

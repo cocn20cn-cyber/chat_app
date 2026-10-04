@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { notifyPrivateRecipient } from '../lib/push'
 import { addAvatarSignedUrl, addSignedUrl, markMessagesDelivered, markMessagesSeen, sendFileMessage, sendTextMessage } from '../services/chat'
 import type { Attachment, Message, MessageReceipt, Profile } from '../types'
 
@@ -202,6 +203,7 @@ export function useChat(myId: string, friendId: string, onProfileUpdated?: (prof
       }
       addMessage(message)
       broadcastMessage(message)
+      void notifyPrivateRecipient(friendId, 'message')
       return true
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') {
